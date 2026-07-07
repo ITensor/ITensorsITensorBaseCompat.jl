@@ -3,9 +3,9 @@
 #
 # Strategy (see ITensorDevelopmentPlans api_migration_map.md):
 #   - Names below are thin wrappers over ITensorBase / TensorAlgebra / MatrixAlgebraKit.
-#   - `combiner`, the factorization return shapes, `map_diag`, the operator/SiteType
-#     system, and the boundary-MPS (ITensorMPS) paths are NOT wrapped here; they need
-#     callsite translation or upstream stack work and are tracked separately.
+#   - The factorization return shapes, the operator/SiteType system, and the boundary-MPS
+#     (ITensorMPS) paths are NOT wrapped here; they need callsite translation or upstream
+#     stack work and are tracked separately.
 #
 # ITensorBase keeps most of this API internal (unexported), so we reach for the
 # qualified names and re-publish the legacy spellings into this namespace.
@@ -589,6 +589,51 @@ function hastags(i::Index, tagstr::AbstractString)
     return all(
         haskey(tags(i), String(strip(t))) for t in split(tagstr, ",") if !isempty(strip(t))
     )
+end
+
+#
+# Diagonal manipulation. The `map_diag` / `map_diag!` generics belong to `NDTensors`
+# (imported into this module); their `AbstractITensor` methods live here at the ITensor
+# layer.
+_diagcartesian(arr, k) = CartesianIndex(ntuple(Returns(k), ndims(arr)))
+function map_diag(f, T::AbstractITensor)
+    arr = copy(unnamed(T))
+    for k in 1:minimum(size(arr))
+        idx = _diagcartesian(arr, k)
+        arr[idx] = f(arr[idx])
+    end
+    return arr[inds(T)...]
+end
+function map_diag!(f, T::AbstractITensor)
+    arr = unnamed(T)
+    for k in 1:minimum(size(arr))
+        idx = _diagcartesian(arr, k)
+        arr[idx] = f(arr[idx])
+    end
+    return T
+end
+# Out-of-place-into-`dest` form `map_diag!(f, dest, src)`: write `f` of `src`'s diagonal
+# onto `dest`'s diagonal (TNQS calls it with `dest === src` for an in-place diagonal map).
+function map_diag!(f, dest::AbstractITensor, src::AbstractITensor)
+    d, s = unnamed(dest), unnamed(src)
+    for k in 1:minimum(size(s))
+        d[_diagcartesian(d, k)] = f(s[_diagcartesian(s, k)])
+    end
+    return dest
+end
+
+#
+# Owned `exp` (avoids type piracy: `AbstractITensor` is not ours, so we do not add a
+# `Base.exp` method for it). Legacy `ITensors.exp(::ITensor)` exponentiates an operator
+# ITensor over its `(i, prime(i))` index pairs by forwarding to ITensorBase's
+# graded-capable matricization `Base.exp(a, codomain, domain)`. Other arguments forward
+# to `Base.exp`.
+exp(x) = Base.exp(x)
+function exp(t::AbstractITensor)
+    p0 = filter(i -> ITensorBase.plev(i) == 0, collect(inds(t)))
+    isempty(p0) && error("exp(::ITensor) expects indices paired as (i, prime(i))")
+    p1 = map(ITensorBase.prime, p0)
+    return Base.exp(t, Tuple(p1), Tuple(p0))
 end
 
 # TODO (small inline residue — can't be a drop-in shim):
