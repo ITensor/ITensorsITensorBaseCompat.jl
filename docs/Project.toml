@@ -1,0 +1,12 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+ITensorFormatter = "b6bf39f1-c9d3-4bad-aad8-593d802f65fd"
+ITensorsITensorBaseCompat = "06001d2b-06b1-4bfe-9828-8c6ae543e18d"
+
+[sources.ITensorsITensorBaseCompat]
+path = ".."
+
+[compat]
+Documenter = "1"
+ITensorFormatter = "0.2.27"
+ITensorsITensorBaseCompat = "0.1"

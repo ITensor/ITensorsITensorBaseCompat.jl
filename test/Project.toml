@@ -1,0 +1,14 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+ITensorPkgSkeleton = "3d388ab1-018a-49f4-ae50-18094d5f71ea"
+ITensorsITensorBaseCompat = "06001d2b-06b1-4bfe-9828-8c6ae543e18d"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources.ITensorsITensorBaseCompat]
+path = ".."
+
+[compat]
+Aqua = "0.8.9"
+ITensorPkgSkeleton = "0.3.42"
+ITensorsITensorBaseCompat = "0.1"
+Test = "1.10"
