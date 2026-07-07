@@ -487,21 +487,6 @@ end
 # the `NDTensors` submodule and are imported into this one.)
 array(T::AbstractITensor) = unnamed(T)
 
-# TYPE PIRACY (temporary, compat-owned — NOT an upstream candidate): extends
-# `Adapt.adapt_structure` for `AbstractITensor` with an eltype target. Using
-# `Adapt.adapt_structure` for eltype *conversion* is an abuse of Adapt.jl (Adapt is for
-# storage/device adaptation, not changing the scalar type), so this does not belong upstream.
-# Kept here for now; the eltype-conversion call sites get rewritten with a different pattern
-# later, retiring this shim rather than upstreaming it.
-#
-# Legacy `adapt(eltype)(t)` converts an ITensor's scalar (element) type. ITensorBase's
-# Adapt integration adapts the storage array/device type but leaves the element type
-# alone, so reproduce the eltype conversion for a `Number` target (used by
-# `adapt(eltype)(state(...))` to build typed product states).
-function Adapt.adapt_structure(::Type{elt}, T::AbstractITensor) where {elt <: Number}
-    return nameddims(convert(AbstractArray{elt}, unnamed(T)), ITensorBase.dimnames(T))
-end
-
 # `swapind`: swap two indices (legacy convenience over `replaceinds`).
 swapind(T::AbstractITensor, i::Index, j::Index) = replaceinds(T, i => j, j => i)
 
