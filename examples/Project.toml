@@ -5,4 +5,4 @@ ITensorsITensorBaseCompat = "06001d2b-06b1-4bfe-9828-8c6ae543e18d"
 path = ".."
 
 [compat]
-ITensorsITensorBaseCompat = "0.1"
+ITensorsITensorBaseCompat = "0.2"
