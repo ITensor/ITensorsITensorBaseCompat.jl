@@ -14,7 +14,6 @@
 # (`src/lib/SiteTypes/`), re-exported by `ITensors`; reproduced as a submodule here.
 module SiteTypes
 
-using ..ITensors: combinedind, combiner, dag, inds
 using ITensorBase: ITensorBase, AbstractITensor, Index
 using LinearAlgebra: LinearAlgebra
 
@@ -138,27 +137,6 @@ op(::OpName"Ryy", ::SiteType"S=1/2"; ϕ) = exp(-im * ϕ * kron(_σy, _σy))
 op(::OpName"Rzz", ::SiteType"S=1/2"; ϕ) = exp(-im * ϕ * kron(_σz, _σz))
 function op(::OpName"CPHASE", ::SiteType"S=1/2"; ϕ)
     return ComplexF64[1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 cis(ϕ)]
-end
-
-# TYPE PIRACY (temporary): extends `Base.exp` for an operator `ITensor` (matricize over the
-# index/prime pairs, exponentiate, rebuild). Legacy ITensors provided `exp(::ITensor)`; gates
-# defined as `exp` of a Hamiltonian operator rely on it (e.g. a user
-# `op(::OpName"MyZRot", ...) = exp(-im θ/2 * op("Z", s))`). To de-pirate: make this compat-owned
-# (an `exp` in this module, not a `Base.exp` method), inferring the prime-pair codomain/domain and
-# forwarding to ITensorBase's matricization `exp(a, dimnames_codomain, dimnames_domain)` — which
-# already exists and is graded-capable, so this dense combiner-based version goes away. Not an
-# upstream candidate (the upstream matricization `exp` is the target, not a `Base.exp(::ITensor)`).
-function Base.exp(t::AbstractITensor)
-    p0 = filter(i -> ITensorBase.plev(i) == 0, collect(inds(t)))
-    isempty(p0) && error("exp(::ITensor) expects indices paired as (i, prime(i))")
-    p1 = map(ITensorBase.prime, p0)
-    cr, cc = combiner(Tuple(p1)), combiner(Tuple(p0))
-    tc = (t * cr) * cc
-    rci, cci = combinedind(cr), combinedind(cc)
-    d = length(rci)
-    M = ComplexF64[tc[rci => a, cci => b] for a in 1:d, b in 1:d]
-    E = exp(M)[rci, cci]
-    return (E * dag(cr)) * dag(cc)
 end
 
 export @OpName_str, @SiteType_str, OpName, SiteType, op, state

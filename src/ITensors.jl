@@ -14,9 +14,9 @@ module ITensors
 # re-exports `NDTensors`, so `using ITensorsITensorBaseCompat.ITensors: scalartype` must
 # also work — and bring in the ones this submodule's own methods build on
 # (`scalartype` / `datatype`).
+import ..NDTensors: map_diag, map_diag!
 import Base: truncate
-using ..NDTensors: @Algorithm_str, Algorithm, data, datatype, dense, denseblocks, map_diag,
-    map_diag!, scalartype
+using ..NDTensors: @Algorithm_str, Algorithm, data, datatype, dense, denseblocks, scalartype
 
 include("itensor.jl")
 
@@ -38,6 +38,8 @@ export
     qr, svd, eigen, factorize, factorize_svd,
     # Diagonal manipulation
     map_diag, map_diag!,
+    # Operator exponential
+    exp,
     # Storage / element-type accessors
     scalartype, datatype, array, data,
     # Dense / quantum-number no-ops

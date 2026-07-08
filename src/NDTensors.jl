@@ -5,7 +5,7 @@
 module NDTensors
 
 using BackendSelection: @Algorithm_str, Algorithm
-using ITensorBase: ITensorBase, AbstractITensor, inds, unnamed
+using ITensorBase: ITensorBase, AbstractITensor, unnamed
 
 #
 # Storage / element type accessors. `scalartype` is the scalar (element) type;
@@ -21,35 +21,12 @@ denseblocks(T::AbstractITensor) = T
 dense(T::AbstractITensor) = T
 
 #
-# Diagonal manipulation. Legacy `map_diag(f, T)` applies `f` to the diagonal of a
-# (diagonal-like) tensor; used on factorization spectra (singular values /
-# eigenvalues). Reproduced via the same diagonal machinery as `delta`.
-_diagcartesian(arr, k) = CartesianIndex(ntuple(Returns(k), ndims(arr)))
-function map_diag(f, T::AbstractITensor)
-    arr = copy(unnamed(T))
-    for k in 1:minimum(size(arr))
-        idx = _diagcartesian(arr, k)
-        arr[idx] = f(arr[idx])
-    end
-    return arr[inds(T)...]
-end
-function map_diag!(f, T::AbstractITensor)
-    arr = unnamed(T)
-    for k in 1:minimum(size(arr))
-        idx = _diagcartesian(arr, k)
-        arr[idx] = f(arr[idx])
-    end
-    return T
-end
-# Out-of-place-into-`dest` form `map_diag!(f, dest, src)`: write `f` of `src`'s diagonal
-# onto `dest`'s diagonal (TNQS calls it with `dest === src` for an in-place diagonal map).
-function map_diag!(f, dest::AbstractITensor, src::AbstractITensor)
-    d, s = unnamed(dest), unnamed(src)
-    for k in 1:minimum(size(s))
-        d[_diagcartesian(d, k)] = f(s[_diagcartesian(s, k)])
-    end
-    return dest
-end
+# Diagonal manipulation. Legacy `map_diag(f, T)` / `map_diag!` apply `f` to a tensor's
+# diagonal (used on factorization spectra). These names belong to `NDTensors` in the real
+# ecosystem, so the generic functions live here; the `AbstractITensor` methods are defined
+# in the sibling `ITensors` submodule, the layer that owns the tensor type.
+function map_diag end
+function map_diag! end
 
 # The algorithm dispatch tag (legacy `Algorithm` / `@Algorithm_str`) comes from
 # BackendSelection.jl, which NDTensors re-exports in the real ecosystem; imported above

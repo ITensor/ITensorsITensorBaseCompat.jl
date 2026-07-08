@@ -3,9 +3,9 @@
 #
 # Strategy (see ITensorDevelopmentPlans api_migration_map.md):
 #   - Names below are thin wrappers over ITensorBase / TensorAlgebra / MatrixAlgebraKit.
-#   - `combiner`, the factorization return shapes, `map_diag`, the operator/SiteType
-#     system, and the boundary-MPS (ITensorMPS) paths are NOT wrapped here; they need
-#     callsite translation or upstream stack work and are tracked separately.
+#   - The factorization return shapes, the operator/SiteType system, and the boundary-MPS
+#     (ITensorMPS) paths are NOT wrapped here; they need callsite translation or upstream
+#     stack work and are tracked separately.
 #
 # ITensorBase keeps most of this API internal (unexported), so we reach for the
 # qualified names and re-publish the legacy spellings into this namespace.
@@ -161,13 +161,6 @@ end
 # `ITensor(array, name.(inds))` to take the space from the array.
 itensor(array, is) = array[is...]
 itensor(array, is...) = array[is...]
-
-# TYPE PIRACY (temporary, compat-owned — NOT an upstream candidate): adds a rank-0
-# `ITensor(x::Number)` constructor, which ITensorBase deliberately omits and does not plan to
-# support. Legacy ITensors uses it as a multiplicative identity to seed a product accumulator
-# (`out = ITensor(1); out *= t; ...`). Kept here for now; the accumulator call sites get rewritten
-# to a different pattern later, retiring this method rather than upstreaming it.
-ITensorBase.ITensor(x::Number) = nameddims(fill(x), ())
 
 # Random ITensor over the given indices (legacy `random_itensor`).
 random_itensor(eltype::Type, is::Index...) = randn(eltype, is...)
@@ -487,21 +480,6 @@ end
 # the `NDTensors` submodule and are imported into this one.)
 array(T::AbstractITensor) = unnamed(T)
 
-# TYPE PIRACY (temporary, compat-owned — NOT an upstream candidate): extends
-# `Adapt.adapt_structure` for `AbstractITensor` with an eltype target. Using
-# `Adapt.adapt_structure` for eltype *conversion* is an abuse of Adapt.jl (Adapt is for
-# storage/device adaptation, not changing the scalar type), so this does not belong upstream.
-# Kept here for now; the eltype-conversion call sites get rewritten with a different pattern
-# later, retiring this shim rather than upstreaming it.
-#
-# Legacy `adapt(eltype)(t)` converts an ITensor's scalar (element) type. ITensorBase's
-# Adapt integration adapts the storage array/device type but leaves the element type
-# alone, so reproduce the eltype conversion for a `Number` target (used by
-# `adapt(eltype)(state(...))` to build typed product states).
-function Adapt.adapt_structure(::Type{elt}, T::AbstractITensor) where {elt <: Number}
-    return nameddims(convert(AbstractArray{elt}, unnamed(T)), ITensorBase.dimnames(T))
-end
-
 # `swapind`: swap two indices (legacy convenience over `replaceinds`).
 swapind(T::AbstractITensor, i::Index, j::Index) = replaceinds(T, i => j, j => i)
 
@@ -568,27 +546,55 @@ function settags(i::Index, d::AbstractDict)
     end
     return i
 end
-# TYPE PIRACY (temporary, compat-owned — NOT an upstream candidate): the two methods below add
-# `ITensorBase.Index` constructors taking a tag string / tag dict, a legacy positional-tag form
-# ITensorBase does not plan to support (the next-gen spelling passes tags via the `tags` keyword
-# argument). Kept here for now; the call sites get modernized to the `tags` kwarg later, retiring
-# these methods rather than upstreaming them.
-#
-# Legacy positional tagged-index constructor `Index(dim, "tag")`.
-ITensorBase.Index(dim::Integer, tagstr::AbstractString) = settags(Index(dim), tagstr)
-# Build a fresh index carrying a tag dictionary (legacy `Index(dim, tags(i))`, where
-# the next-gen `tags` returns a `Dict{String, String}`).
-function ITensorBase.Index(dim::Integer, tags::AbstractDict)
-    i = Index(dim)
-    for (k, v) in tags
-        i = ITensorBase.settag(i, k, v)
-    end
-    return i
-end
 function hastags(i::Index, tagstr::AbstractString)
     return all(
         haskey(tags(i), String(strip(t))) for t in split(tagstr, ",") if !isempty(strip(t))
     )
+end
+
+#
+# Diagonal manipulation. The `map_diag` / `map_diag!` generics belong to `NDTensors`
+# (imported into this module); their `AbstractITensor` methods live here at the ITensor
+# layer.
+_diagcartesian(arr, k) = CartesianIndex(ntuple(Returns(k), ndims(arr)))
+function map_diag(f, T::AbstractITensor)
+    arr = copy(unnamed(T))
+    for k in 1:minimum(size(arr))
+        idx = _diagcartesian(arr, k)
+        arr[idx] = f(arr[idx])
+    end
+    return arr[inds(T)...]
+end
+function map_diag!(f, T::AbstractITensor)
+    arr = unnamed(T)
+    for k in 1:minimum(size(arr))
+        idx = _diagcartesian(arr, k)
+        arr[idx] = f(arr[idx])
+    end
+    return T
+end
+# Out-of-place-into-`dest` form `map_diag!(f, dest, src)`: write `f` of `src`'s diagonal
+# onto `dest`'s diagonal (TNQS calls it with `dest === src` for an in-place diagonal map).
+function map_diag!(f, dest::AbstractITensor, src::AbstractITensor)
+    d, s = unnamed(dest), unnamed(src)
+    for k in 1:minimum(size(s))
+        d[_diagcartesian(d, k)] = f(s[_diagcartesian(s, k)])
+    end
+    return dest
+end
+
+#
+# Owned `exp` (avoids type piracy: `AbstractITensor` is not ours, so we do not add a
+# `Base.exp` method for it). Legacy `ITensors.exp(::ITensor)` exponentiates an operator
+# ITensor over its `(i, prime(i))` index pairs by forwarding to ITensorBase's
+# graded-capable matricization `Base.exp(a, codomain, domain)`. Other arguments forward
+# to `Base.exp`.
+exp(x) = Base.exp(x)
+function exp(t::AbstractITensor)
+    p0 = filter(i -> ITensorBase.plev(i) == 0, collect(inds(t)))
+    isempty(p0) && error("exp(::ITensor) expects indices paired as (i, prime(i))")
+    p1 = map(ITensorBase.prime, p0)
+    return Base.exp(t, Tuple(p1), Tuple(p0))
 end
 
 # TODO (small inline residue — can't be a drop-in shim):
