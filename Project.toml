@@ -1,6 +1,6 @@
 name = "ITensorsITensorBaseCompat"
 uuid = "06001d2b-06b1-4bfe-9828-8c6ae543e18d"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
 
 [workspace]
@@ -17,7 +17,7 @@ TensorAlgebra = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 [compat]
 Adapt = "4"
 BackendSelection = "0.1"
-ITensorBase = "0.10.9"
+ITensorBase = "0.10.9, 0.11"
 LinearAlgebra = "1"
 MatrixAlgebraKit = "0.6"
 TensorAlgebra = "0.17"
